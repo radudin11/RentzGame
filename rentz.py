@@ -1,11 +1,15 @@
 from enum import Enum
+import tkinter as tk
 import time
 from openpyxl import Workbook
+import gui
 
 wb = Workbook()
 
 SLEEP_TIME = 0.5
 NEW_LINE = "\n\n"
+
+
 SCORE_HISTORY = True
 
 GAMEMODES = ["King of Hearts", "Queens", "Diamonds", "Whist", "Rentz", "Total"]
@@ -481,6 +485,16 @@ class Game :
 
 
 def main() :
+    root = tk.Tk()
+
+    textBox = tk.Text(root, height = 10, width = 50)
+    textBox.pack()
+
+    consoleText = gui.ConsoleText(textBox)
+
+    root.mainloop()
+
+    consoleText.start()
     players = []
     numPlayers = int(input("How many players are there? "))
     # if numPlayers < 3 or numPlayers > 6 :
@@ -508,6 +522,8 @@ def main() :
     
     game = Game(players, ws)
     game.play()
+
+    consoleText.stop()
 
 def printScoresToExcel(players, ws, scoreRow) :
     for i in range(len(players)) :
