@@ -1,15 +1,23 @@
 from enum import Enum
 import time
+from openpyxl import Workbook
+
+wb = Workbook()
 
 SLEEP_TIME = 0.5
 NEW_LINE = "\n\n"
+SCORE_HISTORY = True
+
+GAMEMODES = ["King of Hearts", "Queens", "Diamonds", "Whist", "Rentz", "Total"]
 
 KING_OF_HEARTS = -100
 QUEEN = -30
 DIAMOND = -20
 WHIST_HAND = 20
 
-RENTZ = [300, 200, 100, 150, 50]
+RENTZ = [300, 200, 100, 150, 50, 0]
+
+scoreRow = 9
 
 def undoDecorator(func) :
     def wrapper(*args, **kwargs) :
@@ -35,12 +43,12 @@ class GameType(Enum) :
 
 
 class Player :
-    def __init__(self, name, points, lastHandPoints) :
+    def __init__(self, name, points, lastHandPoints, index) :
         self.name = name
         self.points = points
         self.lastHandPoints = lastHandPoints
         self.gameTypesRemaining = [GameType.KING_OF_HEARTS, GameType.QUEENS, GameType.DIAMONDS, GameType.WHIST, GameType.RENTZ, GameType.TOTAL]
-    
+        self.index = index
     def __str__(self) :
         return self.name + " has " + str(self.points) + " points."
     
@@ -93,12 +101,13 @@ class Player :
 
 
 class Game :
-    def __init__(self, players) :
+    def __init__(self, players, ws) :
         self.players = players
         self.numPlayers = len(players)
         self.gamesRemaining = len(players) * 6
         self.doubleFlag = False
         self.undoFlag = False
+        self.ws = ws
 
     def undoLastHand(self) :
         # cleans up last hand in case of an undo. Does nothing if no undo has been called on current hand.
@@ -108,10 +117,13 @@ class Game :
 
     
     def play(self) :
+        scoreRow = 9
         while self.gamesRemaining > 0 :
             for player in self.players :
                 gameType = player.chooseGameType()
                 self.doubleFlag = False
+
+                mark = "x"
 
                 # check for double game
                 dobuleCheck = input("Type 'd' to double the points or press enter to continue: ")
@@ -120,8 +132,11 @@ class Game :
                     dobuleCheck  = input("Type 'd' to double the points or press enter to continue: ")
                 if dobuleCheck == "d" or dobuleCheck == "double" :
                     self.doubleFlag = True
+                    mark = "NV"
 
                 player.gameTypesRemaining.remove(gameType)
+                self.ws.cell(column=player.index + 2, row=gameType.value + 1).value = mark
+                wb.save("Scores.xlsx")
 
                 time.sleep(SLEEP_TIME)
 
@@ -141,23 +156,36 @@ class Game :
                     print("Playing Rentz...\n")
                     self.playRentz()
                 elif gameType == GameType.TOTAL :
+                    print("Playing Total...\n")
                     self.playTotal()
                 else :
                     print("Error: Invalid game type.")
                 
                 time.sleep(SLEEP_TIME)
 
-                outputString = "Current standings:" + NEW_LINE
+
+                # print scores
+
+                printScoresToExcel(self.players, self.ws, scoreRow)
+
+                if SCORE_HISTORY == True :
+                    scoreRow += 1
+
+                outputString = "Current scores:" + NEW_LINE
                 for i in range(len(self.players)) :
                     outputString += self.players[i].name + ": " + str(self.players[i].points) + " points,\n"
+
                 outputString = outputString[:-2]
                 outputString += "."
+
                 print(outputString)
 
                 time.sleep(SLEEP_TIME)
                 print(NEW_LINE)
 
                 self.gamesRemaining -= 1
+
+                
 
    
     
@@ -196,8 +224,12 @@ class Game :
         print(NEW_LINE)
 
         # clean up last hand
+        print("Scores this hand:\n")
         for player in self.players :
+            print(player.name + ": " + str(player.lastHandPoints) + " points\n")
             player.lastHandPoints = 0
+        
+        print(NEW_LINE)
 
     def playQueens(self) :
         totalQueens = 0
@@ -236,8 +268,12 @@ class Game :
         print(NEW_LINE)
 
         # clean up last hand
+        print("Scores this hand:\n")
         for player in self.players :
+            print(player.name + ": " + str(player.lastHandPoints) + " points\n")
             player.lastHandPoints = 0
+        
+        print(NEW_LINE)
         
             
 
@@ -279,8 +315,12 @@ class Game :
         print(NEW_LINE)
 
         # clean up last hand
+        print("Scores this hand:\n")
         for player in self.players :
+            print(player.name + ": " + str(player.lastHandPoints) + " points\n")
             player.lastHandPoints = 0
+        
+        print(NEW_LINE)
         
     def playWhist(self) :
         # in case of undo
@@ -321,8 +361,12 @@ class Game :
         print(NEW_LINE)
 
         # clean up last hand
+        print("Scores this hand:\n")
         for player in self.players :
+            print(player.name + ": " + str(player.lastHandPoints) + " points\n")
             player.lastHandPoints = 0
+        
+        print(NEW_LINE)
         
 
     def playRentz(self) :
@@ -361,12 +405,14 @@ class Game :
         print(NEW_LINE)
 
         # clean up last hand
+        print("Scores this hand:\n")
         for player in self.players :
+            print(player.name + ": " + str(player.lastHandPoints) + " points\n")
             player.lastHandPoints = 0
+        
+        print(NEW_LINE)
 
     def playTotal(self) :
-        print("Playing Total")
-
         # in case of undo
         self.undoLastHand()
 
@@ -378,8 +424,7 @@ class Game :
 
         print("Total points: " + str(totalPoints) + NEW_LINE)
 
-        print("For each player, enter the number of points they received. If you want it to be " + 
-        + "automatically calculated enter 'x'. Note: This can only be done for 1 player" + NEW_LINE)
+        print("For each player, enter the number of points they received. If you want it to be automatically calculated enter 'x'. Note: This can only be done for 1 player" + NEW_LINE)
         
         xPos = -1
         for i in range(len(self.players)) :
@@ -409,7 +454,7 @@ class Game :
             self.players[xPos].lastHandPoints += totalPoints
         else :
             if totalPoints != 0 :
-                print("Error: Invalid number of points. Re-enter the number of points each player received.")
+                print("Error: Invalid number of points (" + str(totalPoints) + "). Re-enter the number of points each player received.")
                 for player in self.players :
                     player.points -= player.lastHandPoints
                     player.lastHandPoints = 0
@@ -426,8 +471,12 @@ class Game :
         print(NEW_LINE)
 
         # clean up last hand
+        print("Scores this hand:\n")
         for player in self.players :
+            print(player.name + ": " + str(player.lastHandPoints) + " points\n")
             player.lastHandPoints = 0
+        
+        print(NEW_LINE)
 
 
 
@@ -441,12 +490,29 @@ def main() :
     for i in range(numPlayers) :
         name = input("Enter the name of player " + str(i + 1) + ": ")
         print(NEW_LINE)
-        players.append(Player(name, 0, 0))
+        players.append(Player(name, 0, 0, i))
+
+    ws = wb.active
+
+    for i in range(len(players)) :
+        ws.cell(row = 1, column = i + 2).value = players[i].name
+
+    for i in range(6) :
+        ws.cell(row = i + 2, column = 1).value = GAMEMODES[i]
+
+    ws.cell(row = 9, column = 1).value = "Scores"
+
+    printScoresToExcel(players, ws, scoreRow)
     
-    game = Game(players)
+    wb.save("Scores.xlsx")
+    
+    game = Game(players, ws)
     game.play()
 
-
+def printScoresToExcel(players, ws, scoreRow) :
+    for i in range(len(players)) :
+        ws.cell(row = scoreRow, column = i + 2).value = players[i].points
+    wb.save("Scores.xlsx")
 
 if __name__ == "__main__" :
     main()
